@@ -8,7 +8,6 @@
 #include <map>
 #include <set>
 
-
 class Node{
     // Name
     int name;                       // f : () -> name
@@ -35,10 +34,10 @@ class Node{
         this->n = values.size();value_to_index.clear();
     }
     void addValue(std::string val){
-        // if (value_to_index.find(val) != value_to_index.end()){
-        //     std::cout<<"Yooooooooooooooooooo\n";
-        //     return;
-        // }
+        if (value_to_index.find(val) != value_to_index.end()){
+            std::cout<<"Yooooooooooooooooooo\n";
+            return;
+        }
         values.push_back(val);
         value_to_index[val] = values.size()-1;
         n++;
@@ -164,7 +163,7 @@ class Network{
     int calcPos(int var,std::vector<int> &values){
         // Values -> Var :: Par(Var)
         int index = 0;
-        for(int i=0;i<std::min(values.size(),nodes[var]->weights.size());i++){
+        for(int i=0;i<nodes[var]->weights.size();i++){
             index += values[i]*nodes[var]->weights[i];
         }
         return index;
@@ -227,6 +226,7 @@ Network readNet(std::string FileName){
                         int index_ = Net.getIndex(temp);
                         if (index_ == -1){
                             Net.addNode(temp);
+                            std::cout<<"Fucked---------------------------------------\n";
                         }
                         index_ = Net.getIndex(temp);
                         parents.push_back(index_);
@@ -267,18 +267,7 @@ double calculate_child_given_parents(Node* variable, int row, int val,std::vecto
     for(int j = 0; j < variable->parents_order.size(); j++){
         values.push_back(DataTable[row][variable->parents_order[j]]);
     }
-    double cpt = variable->CPT[net.calcPos(QuestionMarks[row], values)];
-    // if (row == 0){
-    //     std::cout<<"Cpt ->" <<cpt<<' '<<net.calcPos(QuestionMarks[row], values) <<'\n';
-    // for(auto &value:values){
-    //     std::cout<<value<<' ';
-    // }std::cout<<'\n';
-    // std::cout<<net.nodes[QuestionMarks[row]]->CPT.size()<<'\n';
-    // for(auto &value: net.nodes[QuestionMarks[row]]->weights){
-    //     std::cout<<value<<' ';
-    // }
-    // std::cout<<'\n';
-    // }
+    double cpt = variable->CPT[net.calcPos(variable->getName(), values)];
     return cpt;
 }
 
@@ -294,20 +283,10 @@ void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<s
                 for(auto &child : variable->children){
                     // product child | parent
                     fact *= calculate_child_given_parents(net.getNode(child), i, DataTable[i][child],DataTable,QuestionMarks,net);
-                    // if (!i){
-                    //     std::cout<<j<<' '<<variable->getName()<<'\n';
-                    //     std::cout<<fact<<'\n';
-                    // }
                 }
                 // Node | parent
                 data_weight[i][j] = fact*(calculate_child_given_parents(variable, i, j,DataTable,QuestionMarks,net));
             }
-            // if (!i){
-            //     for(auto &weight: variable->weights){
-            //         std::cout<<weight<<' ';
-            //     }
-            //     std::cout<<'\n';
-            // }
             DataTable[i][QuestionMarks[i]] =-1;
         }
 
@@ -413,9 +392,5 @@ int main(){
     }
     // CPT -> Data
 
-
     return 0;
 }
-
-
-
