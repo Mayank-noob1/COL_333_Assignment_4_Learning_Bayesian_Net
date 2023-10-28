@@ -154,20 +154,18 @@ class Network{
     }
     void setWeights(int var){
         int n=nodes[var]->parents_order.size();
-        int prev= 1;
-        nodes[var]->weights.push_back(prev);
-        prev *= nodes[var]->getnVal();
-        nodes[var]->weights.push_back(prev);
+        int n_ = nodes[var]->CPT.size()/nodes[var]->getnVal();
+        nodes[var]->weights.push_back(n_);
         for(int i=0;i<n;i++){
-            prev *= nodes[nodes[var]->parents_order[i]]->getnVal();
-            nodes[var]->weights.push_back(prev);
+            n_ /= nodes[nodes[var]->parents_order[i]]->getnVal();
+            nodes[var]->weights.push_back(n_);
         }
     }
     int calcPos(int var,std::vector<int> &values){
         // Values -> Var :: Par(Var)
-        int index = nodes[var]->CPT.size()-1;
-        for(int i=0;i<values.size();i++){
-            index -= values[i]*nodes[var]->weights[i];
+        int index = 0;
+        for(int i=0;i<std::min(values.size(),nodes[var]->weights.size());i++){
+            index += values[i]*nodes[var]->weights[i];
         }
         return index;
     }
@@ -275,6 +273,11 @@ double calculate_child_given_parents(Node* variable, int row, int val,std::vecto
     // for(auto &value:values){
     //     std::cout<<value<<' ';
     // }std::cout<<'\n';
+    // std::cout<<net.nodes[QuestionMarks[row]]->CPT.size()<<'\n';
+    // for(auto &value: net.nodes[QuestionMarks[row]]->weights){
+    //     std::cout<<value<<' ';
+    // }
+    // std::cout<<'\n';
     // }
     return cpt;
 }
