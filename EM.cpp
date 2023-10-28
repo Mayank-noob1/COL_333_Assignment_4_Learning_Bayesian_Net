@@ -6,6 +6,7 @@
 #include <sstream>
 #include <cstdlib>
 #include <map>
+#include <set>
 
 
 class Node{
@@ -17,11 +18,14 @@ class Node{
     std::map<std::string,int> value_to_index;    // f : name -> i
 
     // Markov blanket - Parent(Child)
-    std::vector<int> parents;       // f : i -> parent
-    std::vector<int> children;      // f : i -> child
+    std::vector<int> parents_order;
+    std::map<int,int> parents;       // f : i -> parent
+    std::set<int> children;      // f : i -> child
+    std::set<int> markovBlanket;
     // CPT
-    std::vector<double> CPT;
     public:
+    std::vector<int> weights;
+    std::vector<double> CPT;
     Node(int i){
         this->name = i;
     }
@@ -39,18 +43,50 @@ class Node{
         n++;
     }
     void addChild(int child){
-        children.push_back(child);
+        children.insert(child);
     }
     void addParent(int parent){
-        parents.push_back(parent);
+        if (isParent(parent)){return;}
+        parents[parent]= parents_order.size();
+        parents_order.push_back(parent);
     }
     void setCPT(std::vector<double> &Cpt){
         CPT.clear();
         CPT = std::vector<double> (Cpt.begin(), Cpt.end());
     }
     void setParents(std::vector<int> &parent){
-        parents = std::vector<int> (parent.begin(), parent.end());
+        for (int i=0;i<parent.size();i++){
+            parents[parent[i]] = parents_order.size();
+            markovBlanket.insert(parent[i]);
+            parents_order.push_back(parent[i]);
+        }
     }
+    int getValToIndex(std::string val){
+        if (value_to_index.find(val) == value_to_index.end()){
+            return -1;
+        }
+        return value_to_index[val];
+    }
+    bool isParent(int parent){
+        return parents.find(parent) != parents.end();
+    }
+    bool isChild(int child){
+        return children.find(child) != children.end();
+    }
+    void addMarkov(int i){
+        markovBlanket.insert(i);
+    }
+    std::set<int> getChildren(){
+        return children;
+    }
+    int getName()
+    {return name;}
+    int getnVal(){
+        return n;
+    }
+    std::vector<double>& getCPT(){return CPT;}
+    void setWeight(){};
+
 };
 
 class Network{
@@ -92,13 +128,32 @@ class Network{
         }
         return nodes[name_to_index.find(name)->second];
     }
+    Node* getNode(int i){
+        if (i >= node_name.size()){
+            return nullptr;
+        }
+        return nodes[i];
+    }
     int getIndex(std::string name){
         if (name_to_index.find(name) == name_to_index.end()){
             return -1;
         }
         return name_to_index.find(name)->second;
     }
-
+    int getVarCount(){
+        return node_name.size();
+    }
+    void generateMarkovBlanket(){
+        for (auto &node: nodes){
+            for (auto &child: node->getChildren()){
+                for(auto &parent: nodes){
+                    if ((parent != node) && (parent->isChild(child))){
+                        node->addMarkov(parent->getName());
+                    }
+                }
+            }
+        }
+    }
 };
 
 Network readNet(std::string FileName){
@@ -177,6 +232,7 @@ Network readNet(std::string FileName){
                     node->setCPT(curr_CPT);
      		}
     	}
+        Net.generateMarkovBlanket();
         myFile.close();
   	}
   	return Net;
@@ -185,9 +241,55 @@ Network readNet(std::string FileName){
 int main(){
     Network net = readNet("Alarm.bif");
 
-    // Perform E-Step
-    
-    // Perform M-Step
+    std::string filename = "records.dat",line,temp;
+    std::ifstream myFile(filename);
+    std::vector<std::vector<int>> DataTable;
+    std::vector<int> QuestionMarks;
+
+    // Reading .dat file
+    if (myFile.is_open())
+    {
+    	while (!myFile.eof() )
+    	{
+    		std::stringstream ss;
+      		getline (myFile,line);
+      		ss.str(line);
+            std::vector<int> vals;
+     		for(int i=0;i< net.getVarCount();i++){
+                ss>>temp;
+                if (temp.compare("\"?\"") == 0){
+                    QuestionMarks.push_back(i);
+                    vals.push_back(-1);
+                }
+                else{
+                    int val = net.getNode(i)->getValToIndex(temp);
+                    vals.push_back(val);
+                }
+            }
+            DataTable.push_back(vals);
+    	}
+        myFile.close();
+    }
+
+    // CPT initialize
+    for (int i=0;i<net.getVarCount();i++){
+        int n = (net.getNode(i)->getCPT().size())/(net.getNode(i)->getnVal());
+        for(int j=0;j<n;j++){
+            net.getNode(i)->getCPT()[j] = 1/n;
+        }
+    }
+
+    // Data -> CPT
+    for(int k=0;k<DataTable.size();k++){
+        for(int l=0;l<DataTable[k].size();l++){
+            if (DataTable[k][l] != -1){
+                //Calculate p = P(X = ? | MB)
+                // curr += p;
+            }
+        }
+    }
+    // CPT -> Data
+
 
     return 0;
 }
