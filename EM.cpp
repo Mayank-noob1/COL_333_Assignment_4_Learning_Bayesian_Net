@@ -15,15 +15,15 @@ class Node{
     int n;
     // n - arity
     std::vector<std::string> values;        // f : i -> name
-    std::map<std::string,int> value_to_index;    // f : name -> i
 
     // Markov blanket - Parent(Child)
-    std::vector<int> parents_order;
     std::map<int,int> parents;       // f : i -> parent
-    std::set<int> children;      // f : i -> child
     std::set<int> markovBlanket;
     // CPT
     public:
+    std::map<std::string,int> value_to_index;    // f : name -> i
+    std::set<int> children;      // f : i -> child
+    std::vector<int> parents_order;
     std::vector<int> weights;
     std::vector<double> CPT;
     Node(int i){
@@ -84,9 +84,6 @@ class Node{
     int getnVal(){
         return n;
     }
-    std::vector<double>& getCPT(){return CPT;}
-    void setWeight(){};
-
 };
 
 class Network{
@@ -95,10 +92,10 @@ class Network{
 
     // n - arity
     std::vector<std::string> node_name;        // f : i -> node_name
-    std::vector<Node*> nodes;                    // f: i -> node *
-    std::map<std::string,int> name_to_index;    // f : node_name -> i
 
     public:
+    std::map<std::string,int> name_to_index;    // f : node_name -> i
+    std::vector<Node*> nodes;                    // f: i -> node *
     Network(std::string name){
         this->name = name;
     }
@@ -154,55 +151,75 @@ class Network{
             }
         }
     }
+    void setWeights(int var){
+        int n=nodes[var]->parents_order.size();
+        int prev= 1;
+        nodes[var]->weights.push_back(prev);
+        prev *= nodes[var]->getnVal();
+        nodes[var]->weights.push_back(prev);
+        for(int i=0;i<n;i++){
+            prev *= nodes[nodes[var]->parents_order[i]]->getnVal();
+            nodes[var]->weights.push_back(prev);
+        }
+    }
+    int calcPos(int var,std::vector<int> &values){
+        // Values -> Var :: Par(Var)
+        int index = nodes[var]->CPT.size()-1;
+        for(int i=0;i<values.size();i++){
+            index -= values[i]*nodes[var]->weights[i];
+        }
+        return index;
+    }
 };
 
 Network readNet(std::string FileName){
     Network Net(FileName);
-	std::string line;
-  	std::ifstream myFile("Alarm.bif"); 
-  	std::string temp;
-  	std::string name;
-  	std::vector<std::string> values;
+    std::string line;
+    std::ifstream myFile("Alarm.bif"); 
+    std::string temp;
+    std::string name;
+    std::vector<std::string> values;
     std::vector<int>parents;
-  	
+    
     if (myFile.is_open())
     {
-    	while (!myFile.eof() )
-    	{
-    		std::stringstream ss;
-      		getline (myFile,line);
-      		ss.str(line);
-     		ss>>temp;
-     		
-     		if(temp.compare("variable")==0)
-     		{       
-     				ss>>name;
-     				getline (myFile,line);
-     				std::stringstream ss_;
-     				ss_.str(line);
-     				for(int i=0;i<4;i++)
-     				{
-     					ss_>>temp;
-     				}
-     				values.clear();
-     				while(temp.compare("};")!=0)
-     				{
-     					values.push_back(temp);
-     					ss_>>temp;
-    				}
-     				Node* pos=Net.addNode(name,values);
-     		}
-     		else if(temp.compare("probability")==0)
-     		{
-     				ss>>temp;
-     				ss>>temp;
+        while (!myFile.eof() )
+        {
+            std::stringstream ss;
+            getline (myFile,line);
+            ss.str(line);
+            ss>>temp;
+            
+            if(temp.compare("variable")==0)
+            {       
+                    ss>>name;
+                    getline (myFile,line);
+                    std::stringstream ss_;
+                    ss_.str(line);
+                    for(int i=0;i<4;i++)
+                    {
+                        ss_>>temp;
+                    }
+                    values.clear();
+                    while(temp.compare("};")!=0)
+                    {
+                        values.push_back(temp);
+                        ss_>>temp;
+                    }
+                    Node* pos=Net.addNode(name,values);
+            }
+            else if(temp.compare("probability")==0)
+            {
+                    ss>>temp;
+                    ss>>temp;
 
-     				Node* node=Net.getNode(temp);
+                    Node* node=Net.getNode(temp);
                     int index=Net.getIndex(temp);
                     ss>>temp;
                     values.clear();
-     				while(temp.compare(")")!=0)
-     				{
+                    parents.clear();
+                    while(temp.compare(")")!=0)
+                    {
                         Node* node_=Net.getNode(temp);
                         node_->addChild(index);
                         int index_ = Net.getIndex(temp);
@@ -210,55 +227,111 @@ Network readNet(std::string FileName){
                             Net.addNode(temp);
                         }
                         index_ = Net.getIndex(temp);
-     					parents.push_back(index_);
+                        parents.push_back(index_);
 
-     					ss>>temp;
-    				}
+                        ss>>temp;
+                    }
                     node->setParents(parents);
-    				getline (myFile,line);
-     				std::stringstream ss_;
+                    getline (myFile,line);
+                    std::stringstream ss_;
                     
-     				ss_.str(line);
-     				ss_>> temp;
-     				ss_>> temp;
+                    ss_.str(line);
+                    ss_>> temp;
+                    ss_>> temp;
                     
-     				std::vector<double> curr_CPT;
+                    std::vector<double> curr_CPT;
                     std::string::size_type sz;
-     				while(temp.compare(";")!=0)
-     				{
-     					curr_CPT.push_back(atof(temp.c_str()));
-     					ss_>>temp;
-    				}
+                    while(temp.compare(";")!=0)
+                    {
+                        curr_CPT.push_back(atof(temp.c_str()));
+                        ss_>>temp;
+                    }
                     node->setCPT(curr_CPT);
-     		}
-    	}
+            }
+        }
         Net.generateMarkovBlanket();
+        for(int i=0;i<Net.getVarCount();i++){
+            Net.setWeights(i);
+        }
         myFile.close();
-  	}
-  	return Net;
+    }
+    return Net;
 }
 
+double calculate_child_given_parents(Node* variable, int row, int val,std::vector<std::vector<int> >&DataTable, std::vector<int>& QuestionMarks, Network &net){
+    int sz = variable->getnVal();
+    std::vector<int> values;
+    values.push_back(val);
+    for(int j = 0; j < variable->parents_order.size(); j++){
+        values.push_back(DataTable[row][variable->parents_order[j]]);
+    }
+    double cpt = variable->CPT[net.calcPos(QuestionMarks[row], values)];
+    if (row == 0){
+        std::cout<<"Cpt ->" <<cpt<<'\n';
+    }
+    return cpt;
+}
+
+void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<std::vector<double> > &data_weight,
+    std::vector<int>& QuestionMarks,Network& net){
+    for(int i=0;i<DataTable.size();i++){
+        if(QuestionMarks[i] != -1){
+            Node *variable = net.getNode(QuestionMarks[i]);
+            int sz = variable->getnVal();
+            for(int j = 0; j < sz; j++){
+                DataTable[i][QuestionMarks[i]] = j;
+                double fact = 1;
+                for(auto &child : variable->children){
+                    // product child | parent
+                    fact *= calculate_child_given_parents(net.getNode(child), i, DataTable[i][child],DataTable,QuestionMarks,net);
+                    if (!i){
+                        std::cout<<j<<' '<<variable->getName()<<'\n';
+                        std::cout<<fact<<'\n';
+                    }
+                }
+                // Node give parent
+                data_weight[i][j] = fact*(calculate_child_given_parents(variable, i, j,DataTable,QuestionMarks,net));
+            }
+            DataTable[i][QuestionMarks[i]] =-1;
+        }
+    }
+    return;
+}
+
+void writeFile(Network &net,std::string outFile){
+    {
+        std::string line;
+        std::ofstream myfile(outFile); 
+        for(int i=0;i<net.getVarCount();i++){
+            for(int j=0;j<net.nodes[i]->weights.size();j++){
+                myfile<<net.nodes[i]->weights[j]<<' ';
+            }
+            myfile<<'\n';
+        }
+    }
+}
 int main(){
     Network net = readNet("Alarm.bif");
-
+    std::ofstream myfile("outfile.bif"); 
     std::string filename = "records.dat",line,temp;
     std::ifstream myFile(filename);
-    std::vector<std::vector<int>> DataTable;
+    std::vector<std::vector<int> > DataTable;
     std::vector<int> QuestionMarks;
-
+    std::vector<std::vector<double> > data_weight;
     // Reading .dat file
     if (myFile.is_open())
     {
-    	while (!myFile.eof() )
-    	{
-    		std::stringstream ss;
-      		getline (myFile,line);
-      		ss.str(line);
+        while (!myFile.eof() )
+        {
+            std::stringstream ss;
+            getline (myFile,line);
+            ss.str(line);
             std::vector<int> vals;
-     		for(int i=0;i< net.getVarCount();i++){
+            int idx = -1;
+            for(int i=0;i< net.getVarCount();i++){
                 ss>>temp;
                 if (temp.compare("\"?\"") == 0){
-                    QuestionMarks.push_back(i);
+                    idx = i;
                     vals.push_back(-1);
                 }
                 else{
@@ -266,30 +339,57 @@ int main(){
                     vals.push_back(val);
                 }
             }
+            QuestionMarks.push_back(idx);
             DataTable.push_back(vals);
-    	}
+        }
         myFile.close();
     }
 
     // CPT initialize
     for (int i=0;i<net.getVarCount();i++){
-        int n = (net.getNode(i)->getCPT().size())/(net.getNode(i)->getnVal());
-        for(int j=0;j<n;j++){
-            net.getNode(i)->getCPT()[j] = 1/n;
+        int n = net.getNode(i)->getnVal();
+        for(int j=0;j<net.getNode(i)->CPT.size();j++){
+            net.getNode(i)->CPT[j] = 1.0/(double)n;
         }
     }
 
-    // Data -> CPT
-    for(int k=0;k<DataTable.size();k++){
-        for(int l=0;l<DataTable[k].size();l++){
-            if (DataTable[k][l] != -1){
-                //Calculate p = P(X = ? | MB)
-                // curr += p;
-            }
+    for(int i=0;i<net.getVarCount();i++){
+            for (int i=0;i<net.getVarCount();i++){
+        int n = net.getNode(i)->getnVal();
+        for(int j=0;j<net.getNode(i)->CPT.size();j++){
+            myfile<<net.getNode(i)->CPT[j] << ' ';
         }
+        myfile<<'\n';
+    }}
+
+    // Data weight initialize
+    for (int i = 0; i < DataTable.size(); i++){
+        if(QuestionMarks[i] != -1){
+            std::vector<double> temp(net.getNode(QuestionMarks[i])->getnVal(), 0);
+            data_weight.push_back(temp);
+        }
+        else{
+            std::vector<double> temp;
+            data_weight.push_back(temp);
+        }
+        
+    }
+    CPT_to_data_weight(DataTable,data_weight,QuestionMarks,net);
+    for(auto &elem: net.name_to_index){
+        std::cout<<elem.first<<' '<<elem.second<<'\n';
+    }
+    myfile<<"DataWeights\n";
+    for(int i=0;i<data_weight.size();i++){
+        for(int j=0;j<data_weight[i].size();j++){
+            myfile<<data_weight[i][j]<<' ';
+        }
+        myfile<<'\n';
     }
     // CPT -> Data
 
 
     return 0;
 }
+
+
+
