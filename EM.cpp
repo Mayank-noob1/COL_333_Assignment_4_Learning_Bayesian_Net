@@ -32,12 +32,13 @@ class Node{
     Node (int i,std::vector<std::string> values){
         this->name = i;
         this->values = values;
-        this->n = values.size();
+        this->n = values.size();value_to_index.clear();
     }
     void addValue(std::string val){
-        if (value_to_index.find(val) != value_to_index.end()){
-            return;
-        }
+        // if (value_to_index.find(val) != value_to_index.end()){
+        //     std::cout<<"Yooooooooooooooooooo\n";
+        //     return;
+        // }
         values.push_back(val);
         value_to_index[val] = values.size()-1;
         n++;
@@ -62,9 +63,9 @@ class Node{
         }
     }
     int getValToIndex(std::string val){
-        if (value_to_index.find(val) == value_to_index.end()){
-            return -1;
-        }
+        // if (value_to_index.find(val) == value_to_index.end()){
+        //     return -1;
+        // }
         return value_to_index[val];
     }
     bool isParent(int parent){
@@ -206,7 +207,10 @@ Network readNet(std::string FileName){
                         values.push_back(temp);
                         ss_>>temp;
                     }
-                    Node* pos=Net.addNode(name,values);
+                    Node* pos=Net.addNode(name);
+                    for(auto &value:values){
+                        pos->addValue(value);
+                    }
             }
             else if(temp.compare("probability")==0)
             {
@@ -266,9 +270,12 @@ double calculate_child_given_parents(Node* variable, int row, int val,std::vecto
         values.push_back(DataTable[row][variable->parents_order[j]]);
     }
     double cpt = variable->CPT[net.calcPos(QuestionMarks[row], values)];
-    if (row == 0){
-        std::cout<<"Cpt ->" <<cpt<<'\n';
-    }
+    // if (row == 0){
+    //     std::cout<<"Cpt ->" <<cpt<<' '<<net.calcPos(QuestionMarks[row], values) <<'\n';
+    // for(auto &value:values){
+    //     std::cout<<value<<' ';
+    // }std::cout<<'\n';
+    // }
     return cpt;
 }
 
@@ -284,16 +291,23 @@ void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<s
                 for(auto &child : variable->children){
                     // product child | parent
                     fact *= calculate_child_given_parents(net.getNode(child), i, DataTable[i][child],DataTable,QuestionMarks,net);
-                    if (!i){
-                        std::cout<<j<<' '<<variable->getName()<<'\n';
-                        std::cout<<fact<<'\n';
-                    }
+                    // if (!i){
+                    //     std::cout<<j<<' '<<variable->getName()<<'\n';
+                    //     std::cout<<fact<<'\n';
+                    // }
                 }
-                // Node give parent
+                // Node | parent
                 data_weight[i][j] = fact*(calculate_child_given_parents(variable, i, j,DataTable,QuestionMarks,net));
             }
+            // if (!i){
+            //     for(auto &weight: variable->weights){
+            //         std::cout<<weight<<' ';
+            //     }
+            //     std::cout<<'\n';
+            // }
             DataTable[i][QuestionMarks[i]] =-1;
         }
+
     }
     return;
 }
@@ -341,6 +355,7 @@ int main(){
             }
             QuestionMarks.push_back(idx);
             DataTable.push_back(vals);
+            vals.clear();
         }
         myFile.close();
     }
@@ -354,13 +369,14 @@ int main(){
     }
 
     for(int i=0;i<net.getVarCount();i++){
-            for (int i=0;i<net.getVarCount();i++){
+        for (int i=0;i<net.getVarCount();i++){
         int n = net.getNode(i)->getnVal();
         for(int j=0;j<net.getNode(i)->CPT.size();j++){
             myfile<<net.getNode(i)->CPT[j] << ' ';
         }
         myfile<<'\n';
-    }}
+        }
+    }
 
     // Data weight initialize
     for (int i = 0; i < DataTable.size(); i++){
@@ -382,6 +398,13 @@ int main(){
     for(int i=0;i<data_weight.size();i++){
         for(int j=0;j<data_weight[i].size();j++){
             myfile<<data_weight[i][j]<<' ';
+        }
+        myfile<<'\n';
+    }
+    myfile<<"DataTable\n";
+    for(int i=0;i<DataTable.size();i++){
+        for(int j=0;j<DataTable[i].size();j++){
+            myfile<<DataTable[i][j]<<' ';
         }
         myfile<<'\n';
     }
