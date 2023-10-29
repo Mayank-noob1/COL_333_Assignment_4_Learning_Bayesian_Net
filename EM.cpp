@@ -263,6 +263,16 @@ Network readNet(std::string FileName){
     return Net;
 }
 
+int index_child_given_parents(Node* variable, int row, int val,std::vector<std::vector<int> >&DataTable, std::vector<int>& QuestionMarks, Network &net){
+    int sz = variable->getnVal();
+    std::vector<int> values;
+    values.push_back(val);
+    for(int j = 0; j < variable->parents_order.size(); j++){
+        values.push_back(DataTable[row][variable->parents_order[j]]);
+    }
+    return net.calcPos(variable->getName(), values);
+}
+
 double calculate_child_given_parents(Node* variable, int row, int val,std::vector<std::vector<int> >&DataTable, std::vector<int>& QuestionMarks, Network &net){
     int sz = variable->getnVal();
     std::vector<int> values;
@@ -274,8 +284,7 @@ double calculate_child_given_parents(Node* variable, int row, int val,std::vecto
     return cpt;
 }
 
-void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<std::vector<double> > &data_weight,
-    std::vector<int>& QuestionMarks,Network& net){
+void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<std::vector<double> > &data_weight, std::vector<int>& QuestionMarks,Network& net){
     for(int i=0;i<DataTable.size();i++){
         if(QuestionMarks[i] != -1){
             Node *variable = net.getNode(QuestionMarks[i]);
@@ -301,9 +310,66 @@ void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<s
     return;
 }
 
-void data_weight_to_CPT(std::vector<std::vector<double> > &data_weight,std::vector<int>& QuestionMarks,Network& net){
+// Updating CPT values using the data_file and data_weights (with smoothing)
+void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<std::vector<double> > &data_weight, std::vector<int>& QuestionMarks,Network& net){
+    std::vector<std::vector<double> > num_ds;  // Data structure containing numerator values of CPT of variables.
+    for(int i=0;i<net.getVarCount();i++){
+        num_ds.push_back(std::vector<double> (net.getNode(i)->CPT.size(),SMOOTH));
+    }
+    for(int i = 0; i < DataTable.size(); i++){                           // Iterating over the data table
+        for(int j = 0; j < DataTable[i].size(); j++){                    // Iterating over row of the data table
+            if(QuestionMarks[i] != j && QuestionMarks[i] != -1){         // Checking if the node is not the missing node
+                if(!net.nodes[j]->isParent(QuestionMarks[i])){      // Checking if the missing node is not one of the parent of the node (This is wrong syntax but hopefully you get the meaning)
+                    int idx = index_child_given_parents(net.getNode(j), i, DataTable[i][j], DataTable, QuestionMarks, net);
+                    // std::cout<<idx<<' '<<num_ds[j].size()<<'\n';
+                    num_ds[j][idx] += 1;
+                }
+                else{
+                    for(int k = 0; k < net.getNode(QuestionMarks[i])->getnVal(); k++){
+                        DataTable[i][QuestionMarks[i]] = k;
+                        int idx = index_child_given_parents(net.getNode(j), i, DataTable[i][j], DataTable, QuestionMarks, net);
+                        // std::cout<<idx<<' '<<num_ds[j].size()<<'\n';
+                        num_ds[j][idx] += data_weight[i][k];
+                    }
+                    DataTable[i][QuestionMarks[i]] = -1;
+                }
+            }
+            else if(QuestionMarks[i] != -1){
+                for(int k = 0; k < net.getNode(QuestionMarks[i])->getnVal(); k++){
+                    DataTable[i][QuestionMarks[i]] = k;
+                    int idx = index_child_given_parents(net.getNode(j), i, DataTable[i][j], DataTable, QuestionMarks, net);
+                    // std::cout<<idx<<' '<<num_ds[j].size()<<'\n';
+                    num_ds[j][idx] += data_weight[i][k];
+                }
+                DataTable[i][QuestionMarks[i]] = -1;
+            }
+            else{
+                std::cout << "row did not contain Question Mark" << std::endl;
+            }
+        }
+    }
 
-    return;
+    // Now normalize the values in num_ds
+    for(int i = 0; i < num_ds.size(); i++){
+        // for(int j =0;j<num_ds[i].size();j++){
+        //     std::cout<<num_ds[i][j]<<' ';
+        // }
+        // std::cout<<'\n';
+        int v = net.getNode(i)->getnVal();
+        int sz = num_ds[i].size()/v;
+        for(int j = 0; j < sz; j++){
+            double norm = 0;
+            for(int k = 0; k < v; k++){
+                norm += num_ds[i][j+sz*k];
+            }
+            for(int k = 0; k < v; k++){
+                num_ds[i][j+sz*k] /= norm;
+            }
+        }
+    }
+    for(int i = 0; i < num_ds.size(); i++){
+        net.nodes[i]->CPT = num_ds[i];
+    }
 }
 
 void writeFile(Network &net,std::string outFile){
@@ -338,7 +404,7 @@ void dataFileWriter(Network &net,std::string filename,std::string outfilename)
                 ss.str(line);
                 ss>>temp_input;
                 if(line.compare("")==0)
-                	outFile << line << std::endl;
+                    outFile << line << std::endl;
                 else if(temp_input.compare("probability")==0)
                 {                        
                     ss>>temp_input;
@@ -435,33 +501,13 @@ int main(){
     }
     
     int iter=0;
-    while(time(NULL)-t < 5){
+    while(time(NULL)-t < 10){
         iter++;
     CPT_to_data_weight(DataTable,data_weight,QuestionMarks,net);
-    data_weight_to_CPT(data_weight,QuestionMarks,net);
+    data_weight_to_CPT(DataTable,data_weight,QuestionMarks,net);
     }
-    // for(auto &elem: net.name_to_index){
-    //     std::cout<<elem.first<<' '<<elem.second<<'\n';
-    // }
-    // myfile<<"DataWeights\n";
-    // for(int i=0;i<data_weight.size();i++){
-    //     for(int j=0;j<data_weight[i].size();j++){
-    //         myfile<<data_weight[i][j]<<' ';
-    //     }
-    //     myfile<<'\n';
-    // }
-    // myfile<<"DataTable\n";
-    // for(int i=0;i<DataTable.size();i++){
-    //     for(int j=0;j<DataTable[i].size();j++){
-    //         myfile<<DataTable[i][j]<<' ';
-    //     }
-    //     myfile<<'\n';
-    // }
+
     dataFileWriter(net,"Alarm.bif","solved_alarm.bif");
-    // std::cout<<iter<<"\n";
 
     return 0;
 }
-
-
-
