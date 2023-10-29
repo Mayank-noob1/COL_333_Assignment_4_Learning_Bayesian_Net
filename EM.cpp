@@ -7,6 +7,9 @@
 #include <cstdlib>
 #include <map>
 #include <set>
+#include <ctime>
+
+const double SMOOTH = 0.01;
 
 class Node{
     // Name
@@ -255,7 +258,7 @@ Network readNet(std::string FileName){
         for(int i=0;i<Net.getVarCount();i++){
             Net.setWeights(i);
         }
-        myFile.close();
+        // myFile.close();
     }
     return Net;
 }
@@ -294,8 +297,12 @@ void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<s
             }
             DataTable[i][QuestionMarks[i]] =-1;
         }
-
     }
+    return;
+}
+
+void data_weight_to_CPT(std::vector<std::vector<double> > &data_weight,std::vector<int>& QuestionMarks,Network& net){
+
     return;
 }
 
@@ -311,7 +318,56 @@ void writeFile(Network &net,std::string outFile){
         }
     }
 }
+
+
+void dataFileWriter(Network &net,std::string filename,std::string outfilename) 
+    {
+        std::string line;
+        std::ifstream myfile(filename); 
+        std::ofstream outFile (outfilename);
+        std::string temp_input;
+        std::string name;
+        if (! myfile.is_open())
+            return;
+        else
+        {
+            while (! myfile.eof() )
+            {
+                std::stringstream ss;
+                getline (myfile,line);
+                ss.str(line);
+                ss>>temp_input;
+                if(line.compare("")==0)
+                	outFile << line << std::endl;
+                else if(temp_input.compare("probability")==0)
+                {                        
+                    ss>>temp_input;
+                    ss>>temp_input;
+                    int currentID = (net.name_to_index.find(temp_input)->second);
+                    // outFile<<currentID<<std::endl;
+                    outFile << line << std::endl;
+                    getline (myfile,line);
+                    outFile << "    table ";
+                    for(int i=0; i < net.getNode(currentID)->CPT.size(); i++)
+                    outFile<<std::fixed<<std::setprecision(4)<<net.getNode(currentID)->CPT[i]<<' ';
+                        // printf("%.4f ",net.getNode(currentID)->CPT[i]);
+                    outFile << ";" << std::endl;
+                    // std::cout<<net.getNode(currentID)->CPT.size()<<'\n';
+                }
+                else if (line.compare("\n") == 0)
+                {
+                    outFile<< line;
+
+                }
+                else 
+                    outFile << line<<std::endl;
+            }
+            
+            myfile.close();
+        }
+    }
 int main(){
+    time_t t = time(NULL);
     Network net = readNet("Alarm.bif");
     std::ofstream myfile("outfile.bif"); 
     std::string filename = "records.dat",line,temp;
@@ -349,9 +405,9 @@ int main(){
 
     // CPT initialize
     for (int i=0;i<net.getVarCount();i++){
-        int n = net.getNode(i)->getnVal();
+        double n_ = 1.0/(double)net.getNode(i)->getnVal();
         for(int j=0;j<net.getNode(i)->CPT.size();j++){
-            net.getNode(i)->CPT[j] = 1.0/(double)n;
+            net.getNode(i)->CPT[j] = n_;
         }
     }
 
@@ -372,30 +428,37 @@ int main(){
             data_weight.push_back(temp);
         }
         else{
-            std::vector<double> temp;
+            std::vector<double> temp(1,1);
             data_weight.push_back(temp);
         }
         
     }
+    
+    int iter=0;
+    while(time(NULL)-t < 5){
+        iter++;
     CPT_to_data_weight(DataTable,data_weight,QuestionMarks,net);
-    for(auto &elem: net.name_to_index){
-        std::cout<<elem.first<<' '<<elem.second<<'\n';
+    data_weight_to_CPT(data_weight,QuestionMarks,net);
     }
-    myfile<<"DataWeights\n";
-    for(int i=0;i<data_weight.size();i++){
-        for(int j=0;j<data_weight[i].size();j++){
-            myfile<<data_weight[i][j]<<' ';
-        }
-        myfile<<'\n';
-    }
-    myfile<<"DataTable\n";
-    for(int i=0;i<DataTable.size();i++){
-        for(int j=0;j<DataTable[i].size();j++){
-            myfile<<DataTable[i][j]<<' ';
-        }
-        myfile<<'\n';
-    }
-
+    // for(auto &elem: net.name_to_index){
+    //     std::cout<<elem.first<<' '<<elem.second<<'\n';
+    // }
+    // myfile<<"DataWeights\n";
+    // for(int i=0;i<data_weight.size();i++){
+    //     for(int j=0;j<data_weight[i].size();j++){
+    //         myfile<<data_weight[i][j]<<' ';
+    //     }
+    //     myfile<<'\n';
+    // }
+    // myfile<<"DataTable\n";
+    // for(int i=0;i<DataTable.size();i++){
+    //     for(int j=0;j<DataTable[i].size();j++){
+    //         myfile<<DataTable[i][j]<<' ';
+    //     }
+    //     myfile<<'\n';
+    // }
+    dataFileWriter(net,"Alarm.bif","solved_alarm.bif");
+    // std::cout<<iter<<"\n";
 
     return 0;
 }
