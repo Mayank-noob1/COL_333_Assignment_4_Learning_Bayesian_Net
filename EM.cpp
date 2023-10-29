@@ -6,8 +6,7 @@
 #include <cstdlib>
 #include <map>
 #include <ctime>
-
-float SMOOTH = 0.05;
+float SMOOTH = 0.0001;
 int total_line=0;
 
 class Node{
@@ -266,7 +265,7 @@ void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<s
 void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<std::vector<float> > &data_weight, std::vector<int>& QuestionMarks,Network& net){
     std::vector<std::vector<float> > num_ds;
     for(int i=0;i<net.getVarCount();i++){
-        num_ds.push_back(std::vector<float> (net.getNode(i)->CPT.size(),SMOOTH));
+        num_ds.push_back(std::vector<float> (net.getNode(i)->CPT.size(),(float)1/(float)(net.getNode(i)->CPT.size())));
     }
     for(int i = 0; i < DataTable.size(); i++){
         for(int j = 0; j < DataTable[i].size(); j++){
@@ -305,6 +304,7 @@ void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<s
             }
             for(int k = 0; k < v; k++){
                 num_ds[i][j+sz*k] /= norm;
+                num_ds[i][j+sz*k] = std::max((float)0.0001,num_ds[i][j+sz*k]);
             }
         }
     }
@@ -390,13 +390,6 @@ int main(int argv,char* argc[]){
         myFile.close();
     }
 
-    for (int i=0;i<net.getVarCount();i++){
-        float n_ = 1.0/(float)net.getNode(i)->getnVal();
-        for(int j=0;j<net.getNode(i)->CPT.size();j++){
-            net.getNode(i)->CPT[j] = n_;
-        }
-    }
-
     for (int i = 0; i < DataTable.size(); i++){
         if(QuestionMarks[i] != -1){
             std::vector<float> temp(net.getNode(QuestionMarks[i])->getnVal(), 0);
@@ -410,14 +403,13 @@ int main(int argv,char* argc[]){
     
     // E-M step
     int iter=0;
+
     while(time(NULL)-t < runtime){
         iter++;
         CPT_to_data_weight(DataTable,data_weight,QuestionMarks,net);
         data_weight_to_CPT(DataTable,data_weight,QuestionMarks,net);
-        if (iter%10 == 0){
-            SMOOTH /= 1.01;
-        }
     }
     dataFileWriter(net,argc[1],argc[3]);
+    // std::cout<<iter<<' '<<(float)(time(NULL)-t)<<'\n';
     return 0;
 }
