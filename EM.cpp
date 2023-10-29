@@ -24,7 +24,7 @@ class Node{
     Node(int i){
         this->name = i;
     }
-    void addValue(std::string val){
+    void addValue(std::string &val){
         if (value_to_index.find(val) != value_to_index.end()){
             return;
         }
@@ -32,10 +32,10 @@ class Node{
         value_to_index[val] = values.size()-1;
         n++;
     }
-    void addChild(int child){
+    void addChild(int &child){
         children.push_back(child);
     }
-    void addParent(int parent){
+    void addParent(int &parent){
         if (isParent(parent)){return;}
         parents[parent]= parents_order.size();
         parents_order.push_back(parent);
@@ -50,17 +50,14 @@ class Node{
             parents_order.push_back(parent[i]);
         }
     }
-    int getValToIndex(std::string val){
+    int getValToIndex(std::string &val){
         if (value_to_index.find(val) == value_to_index.end()){
             return -1;
         }
         return value_to_index[val];
     }
-    bool isParent(int parent){
+    bool isParent(int &parent){
         return parents.find(parent) != parents.end();
-    }
-    std::vector<int> getChildren(){
-        return children;
     }
     int getName(){
         return name;}
@@ -219,7 +216,7 @@ Network readNet(std::string FileName){
     return Net;
 }
 
-int index_child_given_parents(Node* variable, int row, int val,std::vector<std::vector<int> >&DataTable, std::vector<int>& QuestionMarks, Network &net){
+int index_child_given_parents(Node* variable, int &row, int &val,std::vector<std::vector<int> >&DataTable, std::vector<int>& QuestionMarks, Network &net){
     int sz = variable->getnVal();
     int n= variable->parents_order.size();
     std::vector<int> values(n+1,0);
@@ -230,7 +227,7 @@ int index_child_given_parents(Node* variable, int row, int val,std::vector<std::
     return net.calcPos(variable->getName(), values);
 }
 
-float calculate_child_given_parents(Node* variable, int row, int val,std::vector<std::vector<int> >&DataTable, std::vector<int>& QuestionMarks, Network &net){
+float calculate_child_given_parents(Node* variable, int &row, int &val,std::vector<std::vector<int> >&DataTable, std::vector<int>& QuestionMarks, Network &net){
     int sz = variable->getnVal();
     int n= variable->parents_order.size();
     std::vector<int> values(n+1,0);
