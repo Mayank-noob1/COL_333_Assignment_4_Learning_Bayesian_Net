@@ -277,6 +277,7 @@ void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<s
         if(QuestionMarks[i] != -1){
             Node *variable = net.getNode(QuestionMarks[i]);
             int sz = variable->getnVal();
+            double sum = 0;
             for(int j = 0; j < sz; j++){
                 DataTable[i][QuestionMarks[i]] = j;
                 double fact = 1;
@@ -286,6 +287,10 @@ void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<s
                 }
                 // Node | parent
                 data_weight[i][j] = fact*(calculate_child_given_parents(variable, i, j,DataTable,QuestionMarks,net));
+                sum += data_weight[i][j];
+            }
+            for(int j=0;j<sz;j++){
+                data_weight[i][j] /= sum;
             }
             DataTable[i][QuestionMarks[i]] =-1;
         }
@@ -390,7 +395,10 @@ int main(){
         }
         myfile<<'\n';
     }
-    // CPT -> Data
+
 
     return 0;
 }
+
+
+
