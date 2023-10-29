@@ -417,6 +417,9 @@ int main(int argv,char* argc[]){
         iter++;
         CPT_to_data_weight(DataTable,data_weight,QuestionMarks,net);
         data_weight_to_CPT(DataTable,data_weight,QuestionMarks,net);
+        if (iter%10 == 0){
+            SMOOTH /= 1.001;
+        }
     }
     dataFileWriter(net,argc[1],argc[3]);
     return 0;
