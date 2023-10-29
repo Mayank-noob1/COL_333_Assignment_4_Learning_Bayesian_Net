@@ -1,44 +1,31 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <list>
 #include <fstream>
 #include <sstream>
 #include <cstdlib>
 #include <map>
-#include <set>
 #include <ctime>
 
-const double SMOOTH = 0.01;
+double SMOOTH = 0.05;
+int total_line=0;
 
 class Node{
-    // Name
-    int name;                       // f : () -> name
+    int name;
     int n;
-    // n - arity
-    std::vector<std::string> values;        // f : i -> name
-
-    // Markov blanket - Parent(Child)
-    std::map<int,int> parents;       // f : i -> parent
-    std::set<int> markovBlanket;
-    // CPT
+    std::vector<std::string> values;
+    std::map<int,int> parents;
+    std::map<std::string,int> value_to_index;
     public:
-    std::map<std::string,int> value_to_index;    // f : name -> i
-    std::set<int> children;      // f : i -> child
+    std::vector<int> children;
     std::vector<int> parents_order;
     std::vector<int> weights;
     std::vector<double> CPT;
     Node(int i){
         this->name = i;
     }
-    Node (int i,std::vector<std::string> values){
-        this->name = i;
-        this->values = values;
-        this->n = values.size();value_to_index.clear();
-    }
     void addValue(std::string val){
         if (value_to_index.find(val) != value_to_index.end()){
-            std::cout<<"Yooooooooooooooooooo\n";
             return;
         }
         values.push_back(val);
@@ -46,7 +33,7 @@ class Node{
         n++;
     }
     void addChild(int child){
-        children.insert(child);
+        children.push_back(child);
     }
     void addParent(int parent){
         if (isParent(parent)){return;}
@@ -60,45 +47,34 @@ class Node{
     void setParents(std::vector<int> &parent){
         for (int i=0;i<parent.size();i++){
             parents[parent[i]] = parents_order.size();
-            markovBlanket.insert(parent[i]);
             parents_order.push_back(parent[i]);
         }
     }
     int getValToIndex(std::string val){
-        // if (value_to_index.find(val) == value_to_index.end()){
-        //     return -1;
-        // }
+        if (value_to_index.find(val) == value_to_index.end()){
+            return -1;
+        }
         return value_to_index[val];
     }
     bool isParent(int parent){
         return parents.find(parent) != parents.end();
     }
-    bool isChild(int child){
-        return children.find(child) != children.end();
-    }
-    void addMarkov(int i){
-        markovBlanket.insert(i);
-    }
-    std::set<int> getChildren(){
+    std::vector<int> getChildren(){
         return children;
     }
-    int getName()
-    {return name;}
+    int getName(){
+        return name;}
     int getnVal(){
         return n;
     }
 };
 
 class Network{
-   // Name
-    std::string name;                       // f : () -> name
-
-    // n - arity
-    std::vector<std::string> node_name;        // f : i -> node_name
-
+    std::string name;
+    std::vector<std::string> node_name;
+    std::map<std::string,int> name_to_index;
+    std::vector<Node*> nodes;
     public:
-    std::map<std::string,int> name_to_index;    // f : node_name -> i
-    std::vector<Node*> nodes;                    // f: i -> node *
     Network(std::string name){
         this->name = name;
     }
@@ -109,16 +85,6 @@ class Network{
         node_name.push_back(name);
         name_to_index[name] = node_name.size()-1;
         Node * node = new Node(node_name.size()-1);
-        nodes.push_back(node);
-        return node;
-    }
-    Node* addNode(std::string name,std::vector<std::string>&val){
-        if (name_to_index.find(name) != name_to_index.end()){
-            return nullptr;
-        }
-        node_name.push_back(name);
-        name_to_index[name] = node_name.size()-1;
-        Node * node = new Node(node_name.size()-1,val);
         nodes.push_back(node);
         return node;
     }
@@ -143,17 +109,6 @@ class Network{
     int getVarCount(){
         return node_name.size();
     }
-    void generateMarkovBlanket(){
-        for (auto &node: nodes){
-            for (auto &child: node->getChildren()){
-                for(auto &parent: nodes){
-                    if ((parent != node) && (parent->isChild(child))){
-                        node->addMarkov(parent->getName());
-                    }
-                }
-            }
-        }
-    }
     void setWeights(int var){
         int n=nodes[var]->parents_order.size();
         int n_ = nodes[var]->CPT.size()/nodes[var]->getnVal();
@@ -171,12 +126,15 @@ class Network{
         }
         return index;
     }
+    int name_to_index_find(std::string name){
+        return name_to_index[name];
+    }
 };
 
 Network readNet(std::string FileName){
     Network Net(FileName);
     std::string line;
-    std::ifstream myFile("Alarm.bif"); 
+    std::ifstream myFile(FileName); 
     std::string temp;
     std::string name;
     std::vector<std::string> values;
@@ -186,6 +144,7 @@ Network readNet(std::string FileName){
     {
         while (!myFile.eof() )
         {
+            total_line++;
             std::stringstream ss;
             getline (myFile,line);
             ss.str(line);
@@ -208,8 +167,8 @@ Network readNet(std::string FileName){
                         ss_>>temp;
                     }
                     Node* pos=Net.addNode(name);
-                    for(auto &value:values){
-                        pos->addValue(value);
+                    for(int i =0;i<values.size();i++){
+                        pos->addValue(values[i]);
                     }
             }
             else if(temp.compare("probability")==0)
@@ -229,7 +188,6 @@ Network readNet(std::string FileName){
                         int index_ = Net.getIndex(temp);
                         if (index_ == -1){
                             Net.addNode(temp);
-                            std::cout<<"Fucked---------------------------------------\n";
                         }
                         index_ = Net.getIndex(temp);
                         parents.push_back(index_);
@@ -254,31 +212,31 @@ Network readNet(std::string FileName){
                     node->setCPT(curr_CPT);
             }
         }
-        Net.generateMarkovBlanket();
         for(int i=0;i<Net.getVarCount();i++){
             Net.setWeights(i);
         }
-        // myFile.close();
     }
     return Net;
 }
 
 int index_child_given_parents(Node* variable, int row, int val,std::vector<std::vector<int> >&DataTable, std::vector<int>& QuestionMarks, Network &net){
     int sz = variable->getnVal();
-    std::vector<int> values;
-    values.push_back(val);
-    for(int j = 0; j < variable->parents_order.size(); j++){
-        values.push_back(DataTable[row][variable->parents_order[j]]);
+    int n= variable->parents_order.size();
+    std::vector<int> values(n+1,0);
+    values[0] = val;
+    for(int j = 0; j < n; j++){
+        values[j+1] = DataTable[row][variable->parents_order[j]];
     }
     return net.calcPos(variable->getName(), values);
 }
 
 double calculate_child_given_parents(Node* variable, int row, int val,std::vector<std::vector<int> >&DataTable, std::vector<int>& QuestionMarks, Network &net){
     int sz = variable->getnVal();
-    std::vector<int> values;
-    values.push_back(val);
-    for(int j = 0; j < variable->parents_order.size(); j++){
-        values.push_back(DataTable[row][variable->parents_order[j]]);
+    int n= variable->parents_order.size();
+    std::vector<int> values(n+1,0);
+    values[0] = val;
+    for(int j = 0; j < n; j++){
+        values[j+1] = DataTable[row][variable->parents_order[j]];
     }
     double cpt = variable->CPT[net.calcPos(variable->getName(), values)];
     return cpt;
@@ -293,11 +251,9 @@ void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<s
             for(int j = 0; j < sz; j++){
                 DataTable[i][QuestionMarks[i]] = j;
                 double fact = 1;
-                for(auto &child : variable->children){
-                    // product child | parent
-                    fact *= calculate_child_given_parents(net.getNode(child), i, DataTable[i][child],DataTable,QuestionMarks,net);
+                for(int r=0;r< variable->children.size();r++){
+                    fact *= calculate_child_given_parents(net.getNode(variable->children[r]), i, DataTable[i][variable->children[r]],DataTable,QuestionMarks,net);
                 }
-                // Node | parent
                 data_weight[i][j] = fact*(calculate_child_given_parents(variable, i, j,DataTable,QuestionMarks,net));
                 sum += data_weight[i][j];
             }
@@ -310,25 +266,22 @@ void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<s
     return;
 }
 
-// Updating CPT values using the data_file and data_weights (with smoothing)
 void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<std::vector<double> > &data_weight, std::vector<int>& QuestionMarks,Network& net){
-    std::vector<std::vector<double> > num_ds;  // Data structure containing numerator values of CPT of variables.
+    std::vector<std::vector<double> > num_ds;
     for(int i=0;i<net.getVarCount();i++){
         num_ds.push_back(std::vector<double> (net.getNode(i)->CPT.size(),SMOOTH));
     }
-    for(int i = 0; i < DataTable.size(); i++){                           // Iterating over the data table
-        for(int j = 0; j < DataTable[i].size(); j++){                    // Iterating over row of the data table
-            if(QuestionMarks[i] != j && QuestionMarks[i] != -1){         // Checking if the node is not the missing node
-                if(!net.nodes[j]->isParent(QuestionMarks[i])){      // Checking if the missing node is not one of the parent of the node (This is wrong syntax but hopefully you get the meaning)
+    for(int i = 0; i < DataTable.size(); i++){
+        for(int j = 0; j < DataTable[i].size(); j++){
+            if(QuestionMarks[i] != j && QuestionMarks[i] != -1){
+                if(!net.getNode(j)->isParent(QuestionMarks[i])){
                     int idx = index_child_given_parents(net.getNode(j), i, DataTable[i][j], DataTable, QuestionMarks, net);
-                    // std::cout<<idx<<' '<<num_ds[j].size()<<'\n';
                     num_ds[j][idx] += 1;
                 }
                 else{
                     for(int k = 0; k < net.getNode(QuestionMarks[i])->getnVal(); k++){
                         DataTable[i][QuestionMarks[i]] = k;
                         int idx = index_child_given_parents(net.getNode(j), i, DataTable[i][j], DataTable, QuestionMarks, net);
-                        // std::cout<<idx<<' '<<num_ds[j].size()<<'\n';
                         num_ds[j][idx] += data_weight[i][k];
                     }
                     DataTable[i][QuestionMarks[i]] = -1;
@@ -338,23 +291,14 @@ void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<s
                 for(int k = 0; k < net.getNode(QuestionMarks[i])->getnVal(); k++){
                     DataTable[i][QuestionMarks[i]] = k;
                     int idx = index_child_given_parents(net.getNode(j), i, DataTable[i][j], DataTable, QuestionMarks, net);
-                    // std::cout<<idx<<' '<<num_ds[j].size()<<'\n';
                     num_ds[j][idx] += data_weight[i][k];
                 }
                 DataTable[i][QuestionMarks[i]] = -1;
             }
-            else{
-                std::cout << "row did not contain Question Mark" << std::endl;
-            }
+            else{}
         }
     }
-
-    // Now normalize the values in num_ds
     for(int i = 0; i < num_ds.size(); i++){
-        // for(int j =0;j<num_ds[i].size();j++){
-        //     std::cout<<num_ds[i][j]<<' ';
-        // }
-        // std::cout<<'\n';
         int v = net.getNode(i)->getnVal();
         int sz = num_ds[i].size()/v;
         for(int j = 0; j < sz; j++){
@@ -368,23 +312,9 @@ void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<s
         }
     }
     for(int i = 0; i < num_ds.size(); i++){
-        net.nodes[i]->CPT = num_ds[i];
+        net.getNode(i)->CPT = num_ds[i];
     }
 }
-
-void writeFile(Network &net,std::string outFile){
-    {
-        std::string line;
-        std::ofstream myfile(outFile); 
-        for(int i=0;i<net.getVarCount();i++){
-            for(int j=0;j<net.nodes[i]->weights.size();j++){
-                myfile<<net.nodes[i]->weights[j]<<' ';
-            }
-            myfile<<'\n';
-        }
-    }
-}
-
 
 void dataFileWriter(Network &net,std::string filename,std::string outfilename) 
     {
@@ -397,51 +327,45 @@ void dataFileWriter(Network &net,std::string filename,std::string outfilename)
             return;
         else
         {
+            int line_no=0;
             while (! myfile.eof() )
             {
+                line_no++;
                 std::stringstream ss;
                 getline (myfile,line);
                 ss.str(line);
                 ss>>temp_input;
-                if(line.compare("")==0)
-                    outFile << line << std::endl;
-                else if(temp_input.compare("probability")==0)
+                if(temp_input.compare("probability")==0)
                 {                        
                     ss>>temp_input;
                     ss>>temp_input;
-                    int currentID = (net.name_to_index.find(temp_input)->second);
-                    // outFile<<currentID<<std::endl;
+                    int currentID = (net.name_to_index_find(temp_input));
                     outFile << line << std::endl;
                     getline (myfile,line);
                     outFile << "    table ";
                     for(int i=0; i < net.getNode(currentID)->CPT.size(); i++)
                     outFile<<std::fixed<<std::setprecision(4)<<net.getNode(currentID)->CPT[i]<<' ';
-                        // printf("%.4f ",net.getNode(currentID)->CPT[i]);
-                    outFile << ";" << std::endl;
-                    // std::cout<<net.getNode(currentID)->CPT.size()<<'\n';
+                    outFile << ";\n}";
+                    if (line_no != total_line){outFile<<'\n';}
+                    getline(myfile,line);
                 }
-                else if (line.compare("\n") == 0)
-                {
-                    outFile<< line;
-
-                }
-                else 
-                    outFile << line<<std::endl;
+                else
+                    outFile << line<<'\n';
             }
             
             myfile.close();
         }
     }
-int main(){
+// .bif .dat .bif
+int main(int argv,char* argc[]){
     time_t t = time(NULL);
-    Network net = readNet("Alarm.bif");
-    std::ofstream myfile("outfile.bif"); 
-    std::string filename = "records.dat",line,temp;
+    Network net = readNet(argc[1]);
+    std::string filename = argc[2],line,temp;
     std::ifstream myFile(filename);
     std::vector<std::vector<int> > DataTable;
     std::vector<int> QuestionMarks;
     std::vector<std::vector<double> > data_weight;
-    // Reading .dat file
+    int runtime = 114;
     if (myFile.is_open())
     {
         while (!myFile.eof() )
@@ -469,7 +393,6 @@ int main(){
         myFile.close();
     }
 
-    // CPT initialize
     for (int i=0;i<net.getVarCount();i++){
         double n_ = 1.0/(double)net.getNode(i)->getnVal();
         for(int j=0;j<net.getNode(i)->CPT.size();j++){
@@ -477,17 +400,6 @@ int main(){
         }
     }
 
-    for(int i=0;i<net.getVarCount();i++){
-        for (int i=0;i<net.getVarCount();i++){
-        int n = net.getNode(i)->getnVal();
-        for(int j=0;j<net.getNode(i)->CPT.size();j++){
-            myfile<<net.getNode(i)->CPT[j] << ' ';
-        }
-        myfile<<'\n';
-        }
-    }
-
-    // Data weight initialize
     for (int i = 0; i < DataTable.size(); i++){
         if(QuestionMarks[i] != -1){
             std::vector<double> temp(net.getNode(QuestionMarks[i])->getnVal(), 0);
@@ -497,17 +409,15 @@ int main(){
             std::vector<double> temp(1,1);
             data_weight.push_back(temp);
         }
-        
     }
     
+    // E-M step
     int iter=0;
-    while(time(NULL)-t < 10){
+    while(time(NULL)-t < runtime){
         iter++;
-    CPT_to_data_weight(DataTable,data_weight,QuestionMarks,net);
-    data_weight_to_CPT(DataTable,data_weight,QuestionMarks,net);
+        CPT_to_data_weight(DataTable,data_weight,QuestionMarks,net);
+        data_weight_to_CPT(DataTable,data_weight,QuestionMarks,net);
     }
-
-    dataFileWriter(net,"Alarm.bif","solved_alarm.bif");
-
+    dataFileWriter(net,argc[1],argc[3]);
     return 0;
 }
