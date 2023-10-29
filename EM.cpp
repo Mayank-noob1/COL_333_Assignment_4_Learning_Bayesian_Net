@@ -7,7 +7,7 @@
 #include <map>
 #include <ctime>
 
-double SMOOTH = 0.05;
+float SMOOTH = 0.05;
 int total_line=0;
 
 class Node{
@@ -20,7 +20,7 @@ class Node{
     std::vector<int> children;
     std::vector<int> parents_order;
     std::vector<int> weights;
-    std::vector<double> CPT;
+    std::vector<float> CPT;
     Node(int i){
         this->name = i;
     }
@@ -40,9 +40,9 @@ class Node{
         parents[parent]= parents_order.size();
         parents_order.push_back(parent);
     }
-    void setCPT(std::vector<double> &Cpt){
+    void setCPT(std::vector<float> &Cpt){
         CPT.clear();
-        CPT = std::vector<double> (Cpt.begin(), Cpt.end());
+        CPT = std::vector<float> (Cpt.begin(), Cpt.end());
     }
     void setParents(std::vector<int> &parent){
         for (int i=0;i<parent.size();i++){
@@ -202,7 +202,7 @@ Network readNet(std::string FileName){
                     ss_>> temp;
                     ss_>> temp;
                     
-                    std::vector<double> curr_CPT;
+                    std::vector<float> curr_CPT;
                     std::string::size_type sz;
                     while(temp.compare(";")!=0)
                     {
@@ -230,7 +230,7 @@ int index_child_given_parents(Node* variable, int row, int val,std::vector<std::
     return net.calcPos(variable->getName(), values);
 }
 
-double calculate_child_given_parents(Node* variable, int row, int val,std::vector<std::vector<int> >&DataTable, std::vector<int>& QuestionMarks, Network &net){
+float calculate_child_given_parents(Node* variable, int row, int val,std::vector<std::vector<int> >&DataTable, std::vector<int>& QuestionMarks, Network &net){
     int sz = variable->getnVal();
     int n= variable->parents_order.size();
     std::vector<int> values(n+1,0);
@@ -238,19 +238,19 @@ double calculate_child_given_parents(Node* variable, int row, int val,std::vecto
     for(int j = 0; j < n; j++){
         values[j+1] = DataTable[row][variable->parents_order[j]];
     }
-    double cpt = variable->CPT[net.calcPos(variable->getName(), values)];
+    float cpt = variable->CPT[net.calcPos(variable->getName(), values)];
     return cpt;
 }
 
-void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<std::vector<double> > &data_weight, std::vector<int>& QuestionMarks,Network& net){
+void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<std::vector<float> > &data_weight, std::vector<int>& QuestionMarks,Network& net){
     for(int i=0;i<DataTable.size();i++){
         if(QuestionMarks[i] != -1){
             Node *variable = net.getNode(QuestionMarks[i]);
             int sz = variable->getnVal();
-            double sum = 0;
+            float sum = 0;
             for(int j = 0; j < sz; j++){
                 DataTable[i][QuestionMarks[i]] = j;
-                double fact = 1;
+                float fact = 1;
                 for(int r=0;r< variable->children.size();r++){
                     fact *= calculate_child_given_parents(net.getNode(variable->children[r]), i, DataTable[i][variable->children[r]],DataTable,QuestionMarks,net);
                 }
@@ -266,10 +266,10 @@ void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<s
     return;
 }
 
-void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<std::vector<double> > &data_weight, std::vector<int>& QuestionMarks,Network& net){
-    std::vector<std::vector<double> > num_ds;
+void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<std::vector<float> > &data_weight, std::vector<int>& QuestionMarks,Network& net){
+    std::vector<std::vector<float> > num_ds;
     for(int i=0;i<net.getVarCount();i++){
-        num_ds.push_back(std::vector<double> (net.getNode(i)->CPT.size(),SMOOTH));
+        num_ds.push_back(std::vector<float> (net.getNode(i)->CPT.size(),SMOOTH));
     }
     for(int i = 0; i < DataTable.size(); i++){
         for(int j = 0; j < DataTable[i].size(); j++){
@@ -302,7 +302,7 @@ void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<s
         int v = net.getNode(i)->getnVal();
         int sz = num_ds[i].size()/v;
         for(int j = 0; j < sz; j++){
-            double norm = 0;
+            float norm = 0;
             for(int k = 0; k < v; k++){
                 norm += num_ds[i][j+sz*k];
             }
@@ -364,7 +364,7 @@ int main(int argv,char* argc[]){
     std::ifstream myFile(filename);
     std::vector<std::vector<int> > DataTable;
     std::vector<int> QuestionMarks;
-    std::vector<std::vector<double> > data_weight;
+    std::vector<std::vector<float> > data_weight;
     int runtime = 114;
     if (myFile.is_open())
     {
@@ -394,7 +394,7 @@ int main(int argv,char* argc[]){
     }
 
     for (int i=0;i<net.getVarCount();i++){
-        double n_ = 1.0/(double)net.getNode(i)->getnVal();
+        float n_ = 1.0/(float)net.getNode(i)->getnVal();
         for(int j=0;j<net.getNode(i)->CPT.size();j++){
             net.getNode(i)->CPT[j] = n_;
         }
@@ -402,11 +402,11 @@ int main(int argv,char* argc[]){
 
     for (int i = 0; i < DataTable.size(); i++){
         if(QuestionMarks[i] != -1){
-            std::vector<double> temp(net.getNode(QuestionMarks[i])->getnVal(), 0);
+            std::vector<float> temp(net.getNode(QuestionMarks[i])->getnVal(), 0);
             data_weight.push_back(temp);
         }
         else{
-            std::vector<double> temp(1,1);
+            std::vector<float> temp(1,1);
             data_weight.push_back(temp);
         }
     }
@@ -418,7 +418,7 @@ int main(int argv,char* argc[]){
         CPT_to_data_weight(DataTable,data_weight,QuestionMarks,net);
         data_weight_to_CPT(DataTable,data_weight,QuestionMarks,net);
         if (iter%10 == 0){
-            SMOOTH /= 1.001;
+            SMOOTH /= 1.01;
         }
     }
     dataFileWriter(net,argc[1],argc[3]);
