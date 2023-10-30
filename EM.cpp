@@ -7,7 +7,7 @@
 #include <ctime>
 #include <iomanip>
 
-float SMOOTH = 0.0005;
+float SMOOTH = 0.0001;
 int total_line=0;
 
 class Node{
@@ -69,10 +69,10 @@ class Node{
 
 class Network{
     std::string name;
-    std::vector<std::string> node_name;
     std::map<std::string,int> name_to_index;
     std::vector<Node*> nodes;
     public:
+    std::vector<std::string> node_name;
     Network(std::string name){
         this->name = name;
     }
@@ -266,10 +266,9 @@ void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<s
     return;
 }
 
-void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<std::vector<float> > &data_weight, std::vector<int>& QuestionMarks,Network& net){
-    std::vector<std::vector<float> > num_ds (net.getVarCount(),std::vector<float>());
+void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<std::vector<float> > &data_weight, std::vector<int>& QuestionMarks,Network& net,std::vector<std::vector<float> >&num_ds){
     for(int i=0;i<net.getVarCount();i++){
-        num_ds[i] = (std::vector<float> (net.getNode(i)->CPT.size(),(float)1/(float)(net.getNode(i)->CPT.size())));
+        num_ds[i] = (std::vector<float> (net.getNode(i)->CPT.size(),SMOOTH));
     }
     for(int i = 0; i < DataTable.size(); i++){
         for(int j = 0; j < DataTable[i].size(); j++){
@@ -311,7 +310,23 @@ void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<s
         }
     }
     for(int i = 0; i < num_ds.size(); i++){
-        net.getNode(i)->CPT = num_ds[i];
+        for(int j =0;j<num_ds[i].size();j++){
+            net.getNode(i)->CPT[j] *= 0.8;
+            net.getNode(i)->CPT[j] += 0.2*num_ds[i][j];
+        }
+    }
+    for(int i = 0; i < num_ds.size(); i++){
+        int v = net.getNode(i)->getnVal();
+        int sz = num_ds[i].size()/v;
+        for(int j = 0; j < sz; j++){
+            float norm = 0;
+            for(int k = 0; k < v; k++){
+                norm += net.getNode(i)->CPT[j+sz*k];
+            }
+            for(int k = 0; k < v; k++){
+                net.getNode(i)->CPT[j+sz*k] /= norm;
+            }
+        }
     }
 }
 
@@ -345,16 +360,20 @@ void dataFileWriter(Network &net,std::string filename,std::string outfilename)
                     for(int i=0; i < net.getNode(currentID)->CPT.size(); i++)
                     outFile<<std::fixed<<std::setprecision(4)<<net.getNode(currentID)->CPT[i]<<' ';
                     outFile << ";\n}";
-                    if (line_no != total_line){outFile<<'\n';}
+                    if (total_line != line_no){outFile<<'\n';}
                     getline(myfile,line);
                 }
+                else if (line.compare("") == 0){
+                    outFile<<line;
+                }
                 else
-                    outFile << line<<'\n';
+                    outFile <<line<<'\n';
             }
             
             myfile.close();
         }
     }
+
 // .bif .dat .bif
 int main(int argv,char* argc[]){
     time_t t = time(NULL);
@@ -363,6 +382,7 @@ int main(int argv,char* argc[]){
     std::ifstream myFile(filename);
     std::vector<std::vector<int> > DataTable;
     std::vector<int> QuestionMarks;
+    
     int runtime = 114;
     if (myFile.is_open())
     {
@@ -396,12 +416,12 @@ int main(int argv,char* argc[]){
             data_weight[i] = temp;
         }
     }
-
+    std::vector<std::vector<float> > num_ds (net.getVarCount(),std::vector<float>());
     int iter=0;
     while(time(NULL)-t < runtime){
         iter++;
         CPT_to_data_weight(DataTable,data_weight,QuestionMarks,net);
-        data_weight_to_CPT(DataTable,data_weight,QuestionMarks,net);
+        data_weight_to_CPT(DataTable,data_weight,QuestionMarks,net,num_ds);
     }
     dataFileWriter(net,argc[1],argc[3]);
     return 0;
