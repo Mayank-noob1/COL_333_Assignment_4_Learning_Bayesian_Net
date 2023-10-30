@@ -10,6 +10,17 @@
 
 using namespace std;
 
+bool isFloat(const std::string &input) {
+    try {
+        size_t pos = 0;
+        std::stof(input, &pos);
+        return pos == input.size();
+    } catch (...) {
+        return false;
+    }
+}
+
+
 class Graph_Node{
 
 private:
@@ -166,19 +177,27 @@ void check_format()
     {
 
     	while (! myfile.eof() )
-    	{		
+    	{
+    		
       		getline (myfile,line);
+      		
+      		
+      		
+
+            
             getline (testfile,testline);
             if(testline.compare(line)!=0)
             {
                 cout<<"Error Here in line number"<<line_count<<"\n";
-                exit(0);
+                exit(1);
             }
             line_count++;
             stringstream ss;
             ss.str(line);
             ss>>temp;
-     	
+     		
+     		
+     		
      		if(temp.compare("probability")==0)
      		{
                     string test_temp;
@@ -195,7 +214,7 @@ void check_format()
                     if(test_temp.compare(temp)!=0)
                     {
                         cout<<"Error Here in line number"<<line_count<<"\n";
-                        exit(0);
+                        exit(1);
                     }
      				ss2>> temp;
                     testss2>>test_temp;
@@ -204,10 +223,10 @@ void check_format()
      				while(temp.compare(";")!=0)
      				{
 
-                        if(!atof(test_temp.c_str()))
+                        if(!isFloat(test_temp.c_str()))
                         {
                             cout<<" Probem in Probab values in line "<<line_count<<"\n";
-                            exit(0);
+                            exit(1);
      					}
                         //cout<<"here"<<temp<<"\n";
      					ss2>>temp;
@@ -219,7 +238,7 @@ void check_format()
                     if(test_temp.compare(";")!=0)
                     {
                         cout<<" Probem in Semi-colon in line "<<line_count<<"\n";
-                        exit(0);
+                        exit(1);
                     }
                     line_count++;
 
@@ -234,7 +253,7 @@ void check_format()
         if(!testfile.eof())
         {
             cout<<" Test File contains more lines\n";
-                        exit(0);
+                        exit(1);
         }   
     	//cout<<line;
     	//if(find==1)
@@ -262,11 +281,14 @@ network read_network(char* filename)
             stringstream ss;
             getline (myfile,line);
             
+            
             ss.str(line);
             ss>>temp;
             
+            
             if(temp.compare("variable")==0)
-            { 
+            {
+                    
                     ss>>name;
                     getline (myfile,line);
                    
@@ -274,7 +296,10 @@ network read_network(char* filename)
                     ss2.str(line);
                     for(int i=0;i<4;i++)
                     {
-                        ss2>>temp;  
+                        
+                        ss2>>temp;
+                        
+                        
                     }
                     values.clear();
                     while(temp.compare("};")!=0)
@@ -284,7 +309,9 @@ network read_network(char* filename)
                         ss2>>temp;
                     }
                     Graph_Node new_node(name,values.size(),values);
-                    int pos=Alarm.addNode(new_node); 
+                    int pos=Alarm.addNode(new_node);
+
+                    
             }
             else if(temp.compare("probability")==0)
             {
@@ -324,11 +351,20 @@ network read_network(char* filename)
                         curr_CPT.push_back(atof(temp.c_str()));
                         
                         ss2>>temp;
+                       
+                        
+
                     }
+                    
                     listIt->set_CPT(curr_CPT);
+
+
             }
-            else{} 
-        } 
+            else
+            {
+            }
+        }
+        
         if(find==1)
         myfile.close();
     }
@@ -353,5 +389,7 @@ int main()
             score+=fabs(cpt1[j]-cpt2[j]);
     }
    cout <<"Score is "<<score;
+   // cout <<"SUCCESS"; 
 	//cout<<Alarm.netSize();
+   return 0;
 }
