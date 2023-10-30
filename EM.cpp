@@ -3,10 +3,11 @@
 #include <vector>
 #include <fstream>
 #include <sstream>
-#include <cstdlib>
 #include <map>
 #include <ctime>
-float SMOOTH = 0.0001;
+#include <iomanip>
+
+float SMOOTH = 0.0005;
 int total_line=0;
 
 class Node{
@@ -59,7 +60,8 @@ class Node{
         return parents.find(parent) != parents.end();
     }
     int getName(){
-        return name;}
+        return name;
+    }
     int getnVal(){
         return n;
     }
@@ -74,7 +76,7 @@ class Network{
     Network(std::string name){
         this->name = name;
     }
-    Node* addNode(std::string name){
+    Node* addNode(std::string &name){
         if (name_to_index.find(name) != name_to_index.end()){
             return nullptr;
         }
@@ -84,7 +86,7 @@ class Network{
         nodes.push_back(node);
         return node;
     }
-    Node* getNode(std::string name){
+    Node* getNode(std::string &name){
         if (name_to_index.find(name) == name_to_index.end()){
             return nullptr;
         }
@@ -96,7 +98,7 @@ class Network{
         }
         return nodes[i];
     }
-    int getIndex(std::string name){
+    int getIndex(std::string &name){
         if (name_to_index.find(name) == name_to_index.end()){
             return -1;
         }
@@ -108,11 +110,13 @@ class Network{
     void setWeights(int var){
         int n=nodes[var]->parents_order.size();
         int n_ = nodes[var]->CPT.size()/nodes[var]->getnVal();
-        nodes[var]->weights.push_back(n_);
+        std::vector<int> weight_(n+1);
+        weight_[0] = n_;
         for(int i=0;i<n;i++){
             n_ /= nodes[nodes[var]->parents_order[i]]->getnVal();
-            nodes[var]->weights.push_back(n_);
+            weight_[i+1] = n_;
         }
+        nodes[var]->weights = weight_;
     }
     int calcPos(int var,std::vector<int> &values){
         // Values -> Var :: Par(Var)
@@ -122,7 +126,7 @@ class Network{
         }
         return index;
     }
-    int name_to_index_find(std::string name){
+    int name_to_index_find(std::string &name){
         return name_to_index[name];
     }
 };
@@ -263,9 +267,9 @@ void CPT_to_data_weight(std::vector<std::vector<int> > &DataTable, std::vector<s
 }
 
 void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<std::vector<float> > &data_weight, std::vector<int>& QuestionMarks,Network& net){
-    std::vector<std::vector<float> > num_ds;
+    std::vector<std::vector<float> > num_ds (net.getVarCount(),std::vector<float>());
     for(int i=0;i<net.getVarCount();i++){
-        num_ds.push_back(std::vector<float> (net.getNode(i)->CPT.size(),(float)1/(float)(net.getNode(i)->CPT.size())));
+        num_ds[i] = (std::vector<float> (net.getNode(i)->CPT.size(),(float)1/(float)(net.getNode(i)->CPT.size())));
     }
     for(int i = 0; i < DataTable.size(); i++){
         for(int j = 0; j < DataTable[i].size(); j++){
@@ -291,7 +295,6 @@ void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<s
                 }
                 DataTable[i][QuestionMarks[i]] = -1;
             }
-            else{}
         }
     }
     for(int i = 0; i < num_ds.size(); i++){
@@ -304,7 +307,6 @@ void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<s
             }
             for(int k = 0; k < v; k++){
                 num_ds[i][j+sz*k] /= norm;
-                num_ds[i][j+sz*k] = std::max((float)0.0001,num_ds[i][j+sz*k]);
             }
         }
     }
@@ -361,7 +363,6 @@ int main(int argv,char* argc[]){
     std::ifstream myFile(filename);
     std::vector<std::vector<int> > DataTable;
     std::vector<int> QuestionMarks;
-    std::vector<std::vector<float> > data_weight;
     int runtime = 114;
     if (myFile.is_open())
     {
@@ -370,46 +371,38 @@ int main(int argv,char* argc[]){
             std::stringstream ss;
             getline (myFile,line);
             ss.str(line);
-            std::vector<int> vals;
+            std::vector<int> vals (net.getVarCount(),0);
             int idx = -1;
             for(int i=0;i< net.getVarCount();i++){
                 ss>>temp;
                 if (temp.compare("\"?\"") == 0){
                     idx = i;
-                    vals.push_back(-1);
+                    vals[i] = -1;
                 }
                 else{
-                    int val = net.getNode(i)->getValToIndex(temp);
-                    vals.push_back(val);
+                    vals[i] = net.getNode(i)->getValToIndex(temp);;
                 }
             }
             QuestionMarks.push_back(idx);
             DataTable.push_back(vals);
-            vals.clear();
         }
         myFile.close();
     }
 
+    std::vector<std::vector<float> > data_weight (DataTable.size(),std::vector<float> (1,1));
     for (int i = 0; i < DataTable.size(); i++){
         if(QuestionMarks[i] != -1){
             std::vector<float> temp(net.getNode(QuestionMarks[i])->getnVal(), 0);
-            data_weight.push_back(temp);
-        }
-        else{
-            std::vector<float> temp(1,1);
-            data_weight.push_back(temp);
+            data_weight[i] = temp;
         }
     }
-    
-    // E-M step
-    int iter=0;
 
+    int iter=0;
     while(time(NULL)-t < runtime){
         iter++;
         CPT_to_data_weight(DataTable,data_weight,QuestionMarks,net);
         data_weight_to_CPT(DataTable,data_weight,QuestionMarks,net);
     }
     dataFileWriter(net,argc[1],argc[3]);
-    // std::cout<<iter<<' '<<(float)(time(NULL)-t)<<'\n';
     return 0;
 }
