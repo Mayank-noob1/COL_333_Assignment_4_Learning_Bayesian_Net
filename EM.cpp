@@ -294,6 +294,10 @@ void data_weight_to_CPT(std::vector<std::vector<int> > &DataTable, std::vector<s
                 }
                 DataTable[i][QuestionMarks[i]] = -1;
             }
+            else{
+                int idx = index_child_given_parents(net.getNode(j), i, DataTable[i][j], DataTable, QuestionMarks, net);
+                num_ds[j][idx] += 1;
+            }
         }
     }
     for(int i = 0; i < num_ds.size(); i++){
